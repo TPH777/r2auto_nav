@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-Tan Ping Hui TPH777 
-=======
 Tan Ping Hui 
->>>>>>> d3aa2321453af6d6127f82e50da5157f193c76c2
 David Michael Indraputra
 <<<<<<< HEAD
 Peteti Harshith
