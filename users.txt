@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-Tan Ping Hui TPH777
-=======
-Tan Ping Hui 
->>>>>>> ce6e2db58270766eb2e9b3c017c3091803d36f36
+Tan Ping Hui TPH777 
 David Michael Indraputra
 Harshith Peteti harshithpeteti
 Song Cheng Yan cyanhere
