@@ -19,8 +19,8 @@ motor = 4
 GPIO.setup(motor, GPIO.OUT)
 
 # constants
-maxSpeed = 0.22
-reducedSpeed = 0.1
+maxSpeed = 0.2
+reducedSpeed = 0.01
 nudgeAngle = 2.0
 turnSpeed = 0.1
 turnAngle = 1.0 # +ve is left, -ve is right 
@@ -107,14 +107,10 @@ class Mission(Node):
                  self.forward()
                    
     def mover(self):
-        twist = Twist()
         try:
-            #self.irmover()
-            #GPIO.output(motor,1)
-            twist.linear.x = maxSpeed
-            twist.angular.z = 0.0
-            self.publisher_.publish(twist)
-            time.sleep(50)
+            while True:
+                self.irmover()
+               # GPIO.output(motor,1)
         except Exception as e:
             print(e)
         finally: # Ctrl-c detected
