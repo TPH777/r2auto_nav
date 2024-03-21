@@ -1,30 +1,31 @@
-# Create new package (setup.py, package.xml)
-# Change .bashrc alias
-# Calibrate nudging (Speed and angle, can deal with sharp turn?)
-
 import rclpy
 from rclpy.node import Node
 import RPi.GPIO as GPIO
 from geometry_msgs.msg import Twist
 import time
+import requests
 
-# Setup
+# IR Setup
+GPIO.setmode(GPIO.BCM)
 leftIr = 2 # Left IR GPIO Pin
 rightIr = 3 # Right IR GPIO Pin
-GPIO.setmode(GPIO.BCM)
 GPIO.setup(leftIr, GPIO.IN)
 GPIO.setup(rightIr, GPIO.IN)
 
-motor = 4
-GPIO.setup(motor, GPIO.OUT)
+# Motor Setup
+leftMotor = 4
+rightMotor = 17
+GPIO.setup(leftMotor, GPIO.OUT)
+GPIO.setup(rightMotor, GPIO.OUT)
 
 # constants
-maxSpeed = 0.2
+maxSpeed = 0.21
 reducedSpeed = 0.01
-nudgeAngle = 2.0
+nudgeAngle = 2.3
 turnSpeed = 0.1
 turnAngle = 1.0 # +ve is left, -ve is right 
-turnTime = 1.0
+turnTime = 5.0
+ip_address = "192.168.18.191"
 
 class Mission(Node):
     
@@ -32,12 +33,25 @@ class Mission(Node):
         super().__init__('mission')
         self.publisher_ = self.create_publisher(Twist,'cmd_vel',10) # Create Publisher
         self.juncCount = 0; # Junction encountered
-    
-# =============================================================================
-#     def shoot(self):
-#         GPIO.output(motor,1)
-# =============================================================================
-    
+    def httpCall(self):
+        url = f'http://{ip_address}/openDoor'
+        headers = {'Content-Type': 'application/json'}
+        data = '{"action": "openDoor", "parameters": {"robotId": 32}}'
+        door_value = ""
+        
+        try:
+            response = requests.post(url, headers=headers, data=data)
+            response_data = response.json()
+            door_value = response_data.get('data', {}).get('message', door_value)
+            print('Status Code: ', response.status_code)
+            print(door_value)
+            if (door_value == 'door1'):
+                self.turnLeft()
+            else:
+                self.turnRight()
+        except requests.exceptions.RequestException as e:
+            print('HTTP Request failed', e)
+        
     def stopBot(self):
         twist = Twist()
         twist.linear.x = 0.0
@@ -45,7 +59,7 @@ class Mission(Node):
         self.publisher_.publish(twist)
         self.juncCount += 1 # Junction encountered +1
         if (self.juncCount == 1):
-            #self.httpCall()
+            self.httpCall()
             self.get_logger().info('http')
         elif (self.juncCount == 2):
             #self.shoot()
@@ -110,12 +124,14 @@ class Mission(Node):
         try:
             while True:
                 self.irmover()
-               # GPIO.output(motor,1)
+               # GPIO.output(leftMotor,1)
+               # GPIO.output(rightMotor, 1)
         except Exception as e:
             print(e)
         finally: # Ctrl-c detected
             self.stopBot() # stop moving
-            GPIO.output(motor,0)
+            #GPIO.output(leftMotor,0)
+            #GPIO.output(rightMotor,0)
 
 def main(args=None):
     rclpy.init(args=args)
