@@ -22,9 +22,9 @@ GPIO.setup(rightMotor, GPIO.OUT)
 maxSpeed = 0.21
 reducedSpeed = 0.01
 nudgeAngle = 2.3
-turnSpeed = 0.1
+turnSpeed = 1.0
 turnAngle = 1.0 # +ve is left, -ve is right 
-turnTime = 5.0
+turnTime = 1.8
 ip_address = "192.168.18.191"
 
 class Mission(Node):
@@ -33,6 +33,7 @@ class Mission(Node):
         super().__init__('mission')
         self.publisher_ = self.create_publisher(Twist,'cmd_vel',10) # Create Publisher
         self.juncCount = 0; # Junction encountered
+        
     def httpCall(self):
         url = f'http://{ip_address}/openDoor'
         headers = {'Content-Type': 'application/json'}
@@ -51,7 +52,7 @@ class Mission(Node):
                 self.turnRight()
         except requests.exceptions.RequestException as e:
             print('HTTP Request failed', e)
-        
+    
     def stopBot(self):
         twist = Twist()
         twist.linear.x = 0.0
@@ -70,18 +71,20 @@ class Mission(Node):
         self.juncCount += 1
         self.get_logger().info('stop')
 
-    def turnLeft(self):
+    def turnRight(self):
         twist = Twist()
         twist.linear.x = turnSpeed
         twist.angular.z = turnAngle
+        time.sleep(0.1)
         self.publisher_.publish(twist)
         time.sleep(turnTime)
         
-    def turnRight(self):
+    def turnLeft(self):
         twist = Twist()
         twist.linear.x = turnSpeed
         twist.angular.z = -turnAngle
         self.publisher_.publish(twist)
+        time.sleep(0.1)
         time.sleep(turnTime)
         
     def nudgeLeft(self):
