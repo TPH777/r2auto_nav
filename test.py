@@ -18,6 +18,11 @@ rightMotor = 17
 GPIO.setup(leftMotor, GPIO.OUT)
 GPIO.setup(rightMotor, GPIO.OUT)
 
+# Servo setup
+servoPin = 12
+GPIO.setup(servoPin, GPIO.OUT)
+servo = GPIO.PWM(servoPin, 50)
+
 # constants
 maxSpeed = 0.21
 reducedSpeed = 0.01
@@ -52,6 +57,21 @@ class Mission(Node):
                 self.turnRight()
         except requests.exceptions.RequestException as e:
             print('HTTP Request failed', e)
+            
+    def shoot(self):
+        print("in shoot")
+        #servo.start()
+        GPIO.output(leftMotor,1)
+        GPIO.output(rightMotor, 1)
+        for i in range(5):
+            servo.ChangeDutyCycle(7.5) # Extend servo
+            time.sleep(3)
+            servo.ChangeDutyCycle(2.5) # Retract servo
+            time.sleep(0.5)
+        #servo.stop()
+        GPIO.output(leftMotor,0)
+        GPIO.output(rightMotor,0)
+        GPIO.cleanup()
     
     def stopBot(self):
         twist = Twist()
@@ -126,15 +146,17 @@ class Mission(Node):
     def mover(self):
         try:
             while True:
-                self.irmover()
-               # GPIO.output(leftMotor,1)
-               # GPIO.output(rightMotor, 1)
+                print("loop")
+                self.shoot()
+                #self.irmover()
         except Exception as e:
             print(e)
         finally: # Ctrl-c detected
             self.stopBot() # stop moving
-            #GPIO.output(leftMotor,0)
-            #GPIO.output(rightMotor,0)
+            servo.stop()
+            GPIO.output(leftMotor,0)
+            GPIO.output(rightMotor,0)
+            GPIO.cleanup()
 
 def main(args=None):
     rclpy.init(args=args)
