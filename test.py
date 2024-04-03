@@ -12,20 +12,14 @@ rightIr = 3 # Right IR GPIO Pin
 GPIO.setup(leftIr, GPIO.IN)
 GPIO.setup(rightIr, GPIO.IN)
 
-# Motor Setup
-leftMotor = 4
-rightMotor = 17
-GPIO.setup(leftMotor, GPIO.OUT)
-GPIO.setup(rightMotor, GPIO.OUT)
-
 # Servo setup
 servoPin = 12
 GPIO.setup(servoPin, GPIO.OUT)
 servo = GPIO.PWM(servoPin, 50)
 
 # constants
-maxSpeed = 0.21
-reducedSpeed = 0.01
+maxSpeed = 0.1
+reducedSpeed = 0.0
 nudgeAngle = 2.3
 turnSpeed = 1.0
 turnAngle = 1.0 # +ve is left, -ve is right 
@@ -60,17 +54,10 @@ class Mission(Node):
             
     def shoot(self):
         print("in shoot")
-        #servo.start()
-        GPIO.output(leftMotor,1)
-        GPIO.output(rightMotor, 1)
-        for i in range(5):
-            servo.ChangeDutyCycle(7.5) # Extend servo
-            time.sleep(3)
-            servo.ChangeDutyCycle(2.5) # Retract servo
-            time.sleep(0.5)
-        #servo.stop()
-        GPIO.output(leftMotor,0)
-        GPIO.output(rightMotor,0)
+        servo.start(0)
+        servo.ChangeDutyCycle(7.5) # Extend servo
+        time.sleep(1)
+        servo.stop()
         GPIO.cleanup()
     
     def stopBot(self):
@@ -79,17 +66,20 @@ class Mission(Node):
         twist.angular.z = 0.0
         self.publisher_.publish(twist)
         self.juncCount += 1 # Junction encountered +1
-        if (self.juncCount == 1):
-            self.httpCall()
-            self.get_logger().info('http')
-        elif (self.juncCount == 2):
-            #self.shoot()
-            self.get_logger().info('shoot')
-        else: # juncCount = 3
-            #self.autoNav()
-            self.get_logger().info('done')
-        self.juncCount += 1
-        self.get_logger().info('stop')
+        print(self.juncCount)
+# =============================================================================
+#         if (self.juncCount == 1):
+#             self.httpCall()
+#             self.get_logger().info('http')
+#         elif (self.juncCount == 2):
+#             self.shoot()
+#             self.get_logger().info('shoot')
+#         else: # juncCount = 3
+#             #self.autoNav()
+#             self.get_logger().info('done')
+#         self.juncCount += 1
+#         self.get_logger().info('stop')
+# =============================================================================
 
     def turnRight(self):
         twist = Twist()
@@ -133,29 +123,26 @@ class Mission(Node):
         rightOnLine = GPIO.input(rightIr)
 
         if (leftOnLine): # 1 if on line, 0 if not on line
-             if(rightOnLine):
-                 self.stopBot()
-             else:
-                 self.nudgeLeft()
+              if(rightOnLine):
+                  self.stopBot()
+              else:
+                  self.nudgeLeft()
         else:
-             if (rightOnLine):
-                 self.nudgeRight()
-             else:
-                 self.forward()
+              if (rightOnLine):
+                  self.nudgeRight()
+              else:
+                  self.forward()
                    
     def mover(self):
         try:
             while True:
-                print("loop")
-                self.shoot()
-                #self.irmover()
+                #self.shoot()
+                self.irmover()
         except Exception as e:
             print(e)
         finally: # Ctrl-c detected
             self.stopBot() # stop moving
             servo.stop()
-            GPIO.output(leftMotor,0)
-            GPIO.output(rightMotor,0)
             GPIO.cleanup()
 
 def main(args=None):
