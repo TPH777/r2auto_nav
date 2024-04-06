@@ -7,8 +7,8 @@ import requests
 
 # IR Setup
 GPIO.setmode(GPIO.BCM)
-leftIr = 15 # Left IR GPIO Pin
-rightIr = 2 # Right IR GPIO Pin
+leftIr = 2 # Left IR GPIO Pin
+rightIr = 15 # Right IR GPIO Pin
 GPIO.setup(leftIr, GPIO.IN)
 GPIO.setup(rightIr, GPIO.IN)
 
@@ -18,9 +18,9 @@ GPIO.setup(servoPin, GPIO.OUT)
 servo = GPIO.PWM(servoPin, 50)
 
 # constants
-maxSpeed = -0.1
+maxSpeed = -0.21
 reducedSpeed = -0.01
-nudgeAngle = -0.5
+nudgeAngle = 2.3
 turnSpeed = -0.05
 turnAngle = -1.0 # +ve is left, -ve is right 
 turnTime = 1.6
@@ -57,18 +57,16 @@ class Mission(Node):
         servo.start(0)
         servo.ChangeDutyCycle(7.5) # Extend servo
         time.sleep(2)
-        servo.stop()
-        GPIO.cleanup()
+        servo.ChangeDutyCycle(2.5)
+        time.sleep(1)
     
-    def stopBot(self):
+    def stop(self):
         twist = Twist()
         twist.linear.x = 0.0
         twist.angular.z = 0.0
         time.sleep(0.1)
         self.publisher_.publish(twist)
         self.juncCount += 1 # Junction encountered +1
-        print(self.juncCount)
-        time.sleep(2)
 # =============================================================================
 #         if (self.juncCount == 1):
 #             self.httpCall()
@@ -103,22 +101,19 @@ class Mission(Node):
         twist = Twist()
         twist.linear.x = reducedSpeed
         twist.angular.z = nudgeAngle
-        self.publisher_.publish(twist)
-        self.get_logger().info('nudge left')  
+        self.publisher_.publish(twist) 
 
     def nudgeRight(self):
         twist = Twist()
         twist.linear.x -= reducedSpeed
         twist.angular.z = -nudgeAngle
-        self.publisher_.publish(twist)
-        self.get_logger().info('nudge right')    
+        self.publisher_.publish(twist)  
         
     def forward(self):
         twist = Twist()
         twist.linear.x = maxSpeed
         twist.angular.z = 0.0
-        self.publisher_.publish(twist)
-        self.get_logger().info('forward')   
+        self.publisher_.publish(twist) 
         
     def irmover(self):
         leftOnLine = GPIO.input(leftIr) 
@@ -126,24 +121,27 @@ class Mission(Node):
         
         if leftOnLine:
             if rightOnLine:
-                self.stopBot()
+                self.stop()
+                print('stop')
             else:
                 self.nudgeLeft()
+                print('nudge left')
         else:
             if rightOnLine:
                 self.nudgeRight()
+                print('nudge right')
             else:
                 self.forward() 
+                print('forward')
 
     def mover(self):
         try:
             while True:
-                #self.drop()
                 self.irmover()
         except Exception as e:
             print(e)
         finally: # Ctrl-c detected
-            self.stopBot() # stop moving
+            self.stop() # stop moving
             servo.stop()
             GPIO.cleanup()
 
