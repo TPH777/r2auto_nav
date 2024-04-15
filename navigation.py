@@ -17,8 +17,6 @@ import heapq
 # constants
 occ_bins = [-1, 0, 50, 100]
 map_bg_color = 1
-k_m = 0
-
 
 #def euler_from_quaternion(x, y, z, w):
 #    """
@@ -101,10 +99,15 @@ class PriorityQueue():
         
     def top(self):
         if self.elements:
-            return self.elements[1]
+            return self.elements[0][1]
+        else:
+            return None
     
     def pop(self):
-        return heapq.heappop(self.elements)[1]
+        if self.elements:
+            return heapq.heappop(self.elements)[1]
+        else:
+            return None
     
     def insert(self, s, k):
         heapq.heappush(self.elements, (k, s))
@@ -135,12 +138,12 @@ class PriorityQueue():
                 heapq.heapify(self.elements)
                 return
 
-queue = PriorityQueue() # create an object queue
-
 class Graph():
     def __init__(self, occupancy_data, number_of_rows, number_of_cols): # TO BE ADDED
         self.vertices = set()  # Set to store the vertices
         self.edges = {}  # Dictionary to store the edges and their costs
+        self.row = number_of_rows
+        self.col = number_of_cols
 
     def add_vertex(self, vertex):
         self.vertices.add(vertex)
@@ -152,17 +155,15 @@ class Graph():
 
     def get_predecessors(self, vertex):
         return [start for start, end in self.edges if end == vertex]
+    
+    def get_successors(self, vertex):
+        return [end for start, end in self.edges if start == vertex]
 
     def g_score(self, start, end):
         return self.edges.get((start, end), float('inf'))
 
     def cost(self, start, end):
         return self.edges.get((start, end), float('inf'))
-    
-    def heuristic(self, start, target):
-        x_distance = abs(int(start.split('x')[1][0]) - int(target.split('x')[1][0]))
-        y_distance = abs(int(start.split('y')[1][0]) - int(target.split('y')[1][0]))
-        return max(x_distance, y_distance)
     
     def rhs_value(self, s, node):
         if s == node:
@@ -174,18 +175,130 @@ class Graph():
             else:
                 return min(self.g_score(s_prime, s) + self.cost(s_prime, s) for s_prime in pred)
 
-graph = Graph(occupancy_data, number_of_rows, number_of_cols)
+def heuristic(start, target):
+    x_distance = abs(int(start.split('x')[1][0]) - int(target.split('x')[1][0]))
+    y_distance = abs(int(start.split('y')[1][0]) - int(target.split('y')[1][0]))
+    return (x_distance**2 + y_distance**2)**(0.5)
+    
+class D_Star_Lite():
+    def __init__(self, graph: Graph(occupancy_data, number_of_rows, number_of_cols), s_start, s_goal):
+        self.s_start = s_start
+        self.s_goal = s_goal
+        self.s_last = s_start
+        self.k_m = 0  # accumulation
+        self.U = PriorityQueue()
+        
+        for s in (graph.get_predecessors(s)+graph.get_successors(s)):
+            self.S = graph.get_predecessors(s)+graph.get_successors(s)
+            graph.rhs_value(s, s_start) = float('inf')
+            graph.g_score(s_start, s) = graph.rhs_value(s, s_start).copy()
+            
+        graph.rhs_value(self.s_last, s_start) = 0
+        self.U.insert(self.s_goal, (heuristic(self.s_start, self.s_goal), 0))
+        
+        self.new_edges_and_old_costs = None
+    
+    def calculate_key(self, s):
+        return (min(graph.g_score(self.s_start,s), graph.rhs_value(s,self.s_start)) + heuristic(s, s_start) + self.k_m, min(graph.g_score(s_start,s), graph.rhs_value(s,s_start)))
 
-def calculate_key(graph, s, s_current, k_m):
-    return (min(graph.g_score(s_current,s), graph.rhs_value(s,s_current)) + graph.heuristic(s, s_current) + k_m, min(graph.g_score(s_current,s), graph.rhs_value(s,s_current)))
+    def update_vertex(self, s):
+        if (graph.g_score(self.s_start,s) != graph.rhs_value(s,self.s_start)) and (s in self.S):
+            self.U.update(s,calculate_key(s))
+        elif (graph.g_score(self.s_start,s) != graph.rhs_value(s,self.s_start)) and (s not in self.S):
+            self.U.insert(s,calculate_key(s))
+        elif (graph.g_score(self.s_start,s) == graph.rhs_value(s,self.s_start)) and (s in self.S):
+            self.U.remove(s)
+    
+    def compute_shortest_path(self):
+        while self.U.top_key() < self.calculate_key(self.s_start) or graph.rhs_value(self.s_start, self.s_start) > graph.g_score(self.s_start, self.s_start):
+            u = self.U.top()
+            k_old = self.U.top_key()
+            k_new = self.calculate_key(u)
 
-def update_vertex(queue, graph, s, s_current, s_goal, S, k_m):
-    if (graph.g_score(s_current,s) != graph.rhs_value(s,s_current)) and (s in S):
-        queue.update(s,calculate_key(graph, s, s_current, k_m))
-    elif (graph.g_score(s_current,s) != graph.rhs_value(s,s_current)) and (s not in S):
-        queue.insert(s,calculate_key(graph, s, s_current, k_m))
-    elif (graph.g_score(s_current,s) == graph.rhs_value(s,s_current)) and (s in S):
-        queue.remove(s)
+            if k_old < k_new:
+                self.U.update(u, k_new)
+            elif graph.g_score(u, self.s_start) > graph.rhs_value(u, self.s_start):
+                graph.g_score(u, self.s_start) = graph.rhs_value(u, self.s_start)
+                self.U.remove(u)
+                pred = graph.get_predecessors(u)
+                for s in pred:
+                    if s != self.s_goal:
+                        graph.rhs_value(s, self.s_start) = min(graph.rhs_value(s, self.s_start), graph.cost(s, u) + graph.g_score(u, self.s_start))
+                    self.update_vertex(s)
+            else:
+                self.g_old = graph.g_score(u, self.s_start)
+                graph.g_score(u, self.s_start) = float('inf')
+                pred = graph.get_predecessors(u)
+                pred.append(u)
+                for s in pred:
+                    if graph.rhs_value(s, self.s_start) == graph.cost(s, u) + self.g_old:
+                        if s != self.s_goal:
+                            min_s = float('inf')
+                            succ = graph.get_successors(s)
+                            for s_ in succ:
+                                temp = graph.cost(s, s_) + graph.g_score(s_, self.s_start)
+                                if min_s > temp:
+                                    min_s = temp
+                            graph.rhs_value(s, self.s_start) = min_s
+                    self.update_vertex(u)
+                    
+    def rescan(self):
+        new_edges_and_old_costs = self.new_edges_and_old_costs
+        self.new_edges_and_old_costs = None
+        return new_edges_and_old_costs
+
+    def move_and_replan(self, robot_position):
+        path = [robot_position]
+        self.s_start = robot_position
+        self.s_last = self.s_start
+        self.compute_shortest_path()
+
+        while self.s_start != self.s_goal:
+            assert (self.rhs[self.s_start] != float('inf')), "There is no known path!"
+
+            succ = self.sensed_map.succ(self.s_start, avoid_obstacles=False)
+            min_s = float('inf')
+            arg_min = None
+            for s_ in succ:
+                temp = self.c(self.s_start, s_) + self.g[s_]
+                if temp < min_s:
+                    min_s = temp
+                    arg_min = s_
+
+            ### algorithm sometimes gets stuck here for some reason !!! FIX
+            self.s_start = arg_min
+            path.append(self.s_start)
+            # scan graph for changed costs
+            changed_edges_with_old_cost = self.rescan()
+            #print("len path: {}".format(len(path)))
+            # if any edge costs changed
+            if changed_edges_with_old_cost:
+                self.k_m += heuristic(self.s_last, self.s_start)
+                self.s_last = self.s_start
+
+                # for all directed edges (u,v) with changed edge costs
+                vertices = changed_edges_with_old_cost.vertices
+                for vertex in vertices:
+                    v = vertex.pos
+                    succ_v = vertex.edges_and_c_old
+                    for u, c_old in succ_v.items():
+                        c_new = self.c(u, v)
+                        if c_old > c_new:
+                            if u != self.s_goal:
+                                self.rhs[u] = min(self.rhs[u], self.c(u, v) + self.g[v])
+                        elif self.rhs[u] == c_old + self.g[v]:
+                            if u != self.s_goal:
+                                min_s = float('inf')
+                                succ_u = self.sensed_map.succ(vertex=u)
+                                for s_ in succ_u:
+                                    temp = self.c(u, s_) + self.g[s_]
+                                    if min_s > temp:
+                                        min_s = temp
+                                self.rhs[u] = min_s
+                            self.update_vertex(u)
+            self.compute_shortest_path()
+        print("path found!")
+        return path, self.g, self.rhs
         
 
 #class Occupy(Node):
