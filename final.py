@@ -18,13 +18,13 @@ GPIO.setup(servoPin, GPIO.OUT)
 servo = GPIO.PWM(servoPin, 50)
 
 # constants
-maxSpeed = -0.21
-reducedSpeed = -0.01
+maxSpeed = 0.21
+reducedSpeed = 0.01
 nudgeAngle = 2.3
-turnSpeed = -0.05
-turnAngle = 1.3 # +ve is left, -ve is right 
+turnSpeed = 0.05
+turnAngle = 1.5 # +ve is left, -ve is right 
 turnTime = 1.0
-ip_address = "192.168.181.191"
+ip_address = "192.168.18.87"
 
 class Mission(Node):
     
@@ -51,14 +51,14 @@ class Mission(Node):
                 self.turnRight()
         except requests.exceptions.RequestException as e:
             print('HTTP Request failed', e)
-            self.httpCall()
             
     def drop(self):
         servo.start(0)
-        servo.ChangeDutyCycle(7.5) # Extend servo
-        time.sleep(2)
+        servo.ChangeDutyCycle(12.5) # Extend servo
+        time.sleep(3)
         servo.ChangeDutyCycle(2.5)
         time.sleep(1)
+        
     
     def stop(self):
         twist = Twist()
@@ -71,7 +71,6 @@ class Mission(Node):
             self.httpCall()
         elif (self.juncCount == 2):
             self.drop()
-
 
     def turnLeft(self):
         twist = Twist()
@@ -110,6 +109,7 @@ class Mission(Node):
     def irmover(self):
         leftOnLine = GPIO.input(leftIr) 
         rightOnLine = GPIO.input(rightIr)
+        time.sleep(0.01)
         
         if leftOnLine:
             if rightOnLine:
