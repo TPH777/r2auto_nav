@@ -144,14 +144,21 @@ class Graph():
         self.edges = {}  # Dictionary to store the edges and their costs
         self.row = number_of_rows
         self.col = number_of_cols
+        self.occupancy_data = occupancy_data
 
     def add_vertex(self, vertex):
         self.vertices.add(vertex)
 
-    def add_edge(self, start, end, cost):
+    def get_vertices(self):
+        return self.vertices
+    
+    def add_edge(self, start, end):
         if start not in self.vertices or end not in self.vertices:
             raise ValueError("Vertices not in graph")
-        self.edges[(start, end)] = cost
+        self.edges[(start, end)] = heuristic(start, end)
+        
+    def get_edges(self):
+        return self.edges
 
     def get_predecessors(self, vertex):
         return [start for start, end in self.edges if end == vertex]
@@ -175,7 +182,7 @@ class Graph():
             else:
                 return min(self.g_score(s_prime, s) + self.cost(s_prime, s) for s_prime in pred)
 
-def heuristic(start, target):
+def heuristic(start, target) -> float:
     x_distance = abs(int(start.split('x')[1][0]) - int(target.split('x')[1][0]))
     y_distance = abs(int(start.split('y')[1][0]) - int(target.split('y')[1][0]))
     return (x_distance**2 + y_distance**2)**(0.5)
@@ -243,6 +250,9 @@ class D_Star_Lite():
                     self.update_vertex(u)
                     
     def rescan(self):
+        if self.new_edges_and_old_costs:
+            for vertex in self.new_edges_and_old_costs:
+                graph.add_vertex(vertex)
         new_edges_and_old_costs = self.new_edges_and_old_costs
         self.new_edges_and_old_costs = None
         return new_edges_and_old_costs
@@ -254,13 +264,13 @@ class D_Star_Lite():
         self.compute_shortest_path()
 
         while self.s_start != self.s_goal:
-            assert (self.rhs[self.s_start] != float('inf')), "There is no known path!"
+            assert (graph.rhs_values(self.s_start, self.s_start) != float('inf')), "There is no known path!"
 
-            succ = self.sensed_map.succ(self.s_start, avoid_obstacles=False)
+            succ = graph.get_successors(self.s_start)
             min_s = float('inf')
             arg_min = None
             for s_ in succ:
-                temp = self.c(self.s_start, s_) + self.g[s_]
+                temp = graph.cost(self.s_start, s_) + graph.g_score(s_, self.s_start)
                 if temp < min_s:
                     min_s = temp
                     arg_min = s_
@@ -277,24 +287,23 @@ class D_Star_Lite():
                 self.s_last = self.s_start
 
                 # for all directed edges (u,v) with changed edge costs
-                vertices = changed_edges_with_old_cost.vertices
+                vertices = changed_edges_with_old_cost.get_vertices()
                 for vertex in vertices:
-                    v = vertex.pos
-                    succ_v = vertex.edges_and_c_old
+                    succ_v = changed_edges_with_old_cost.get_successors(vertex)
                     for u, c_old in succ_v.items():
-                        c_new = self.c(u, v)
+                        c_new = graph.cost(u, vertex)
                         if c_old > c_new:
                             if u != self.s_goal:
-                                self.rhs[u] = min(self.rhs[u], self.c(u, v) + self.g[v])
-                        elif self.rhs[u] == c_old + self.g[v]:
+                                graph.rhs_value(u, self.s_start) = min(graph.rhs_value(u, self.s_start), graph.cost(u, vertex) + graph.g_score(vertex, self.s_start))
+                        elif graph.rhs_value(u, self.s_start) == c_old + graph.g_score(vertex, self.s_start):
                             if u != self.s_goal:
                                 min_s = float('inf')
-                                succ_u = self.sensed_map.succ(vertex=u)
+                                succ_u = graph.get_successors(u)
                                 for s_ in succ_u:
-                                    temp = self.c(u, s_) + self.g[s_]
+                                    temp = graph.cost(u, s_) + graph.g_score(s_, self.s_start)
                                     if min_s > temp:
                                         min_s = temp
-                                self.rhs[u] = min_s
+                                graph.rhs_value(u, self.s_start) = min_s
                             self.update_vertex(u)
             self.compute_shortest_path()
         print("path found!")
